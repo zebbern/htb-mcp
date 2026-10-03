@@ -1,6 +1,6 @@
 {
   "name": "@zebbern/htb",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "mcpName": "io.github.zebbern/htb-mcp",
   "description": "MCP server giving AI agents live control of Hack The Box labs (machines, challenges, flags, VPN) via the bundled zero-dependency HTB Agent Toolkit CLI.",
   "type": "module",

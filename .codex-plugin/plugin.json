@@ -1,6 +1,6 @@
 {
   "name": "htb",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Live control of Hack The Box labs from your agent: start/stop machines, submit flags, browse challenges, manage VPN — via the bundled HTB Agent Toolkit.",
   "author": {
     "name": "zebbern"
