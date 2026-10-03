@@ -512,8 +512,7 @@ server.registerTool(
     description:
       "Submit a challenge flag. difficulty is a required rating in steps of 10 from 10 to 100 — ask " +
       "the user if they did not provide one. Submissions are irreversible: confirm with the user " +
-      "first. (This route is implemented per the v4 machine-own analogue; htb_raw is the fallback " +
-      "if the endpoint moved.)",
+      "first.",
     inputSchema: {
       target: z.string().min(1).describe("Challenge id or name"),
       flag: z.string().min(1).describe("The flag, e.g. HTB{...}"),
@@ -673,23 +672,26 @@ server.registerTool(
       "Escape hatch: call any HTB API endpoint directly. Hits the v4 base " +
       "(https://labs.hackthebox.com/api/v4) by default — pass baseUrl " +
       "'https://labs.hackthebox.com/api/v5' for v5 endpoints. path like '/machine/active' (leading " +
-      "slash optional); data takes a raw JSON string body. Use when a typed tool is missing or an " +
-      "endpoint moved.",
+      "slash optional); data takes a raw JSON string body. Set output to save a binary response " +
+      "(for example, GET /challenge/download/<id>) instead of decoding it as text. Relative output " +
+      "paths resolve under the toolkit directory. Use when a typed tool is missing or an endpoint moved.",
     inputSchema: {
       method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).describe("HTTP method"),
       path: z.string().min(1).describe("API path, e.g. '/machine/active'"),
       data: z.string().optional().describe("Raw JSON request body string"),
       baseUrl: z.string().optional().describe("Override API base URL (use the v5 URL for v5 endpoints)"),
+      output: z.string().min(1).optional().describe("Save the response body to this file path"),
     },
     annotations: {
       readOnlyHint: false,
       openWorldHint: true,
     },
   },
-  async ({ method, path: apiPath, data, baseUrl }) => {
+  async ({ method, path: apiPath, data, baseUrl, output }) => {
     const args = ["raw", method, apiPath];
     if (data !== undefined) args.push("--data", data);
     if (baseUrl !== undefined) args.push("--base-url", baseUrl);
+    if (output !== undefined) args.push("--output", output);
     return callCli(args);
   },
 );

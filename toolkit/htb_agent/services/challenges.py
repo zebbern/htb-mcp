@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import quote
 
 from htb_agent import cache
 from htb_agent.http import HtbApiClient
@@ -80,7 +81,7 @@ class ChallengeService:
 
     def info(self, target: str) -> Any:
         """Raw ``GET /challenge/info/<target>`` payload (id or name)."""
-        return self.client.get(f"/challenge/info/{target}")
+        return self.client.get(f"/challenge/info/{quote(target, safe='')}")
 
     def info_item(self, target: str) -> dict[str, Any]:
         """The ``challenge`` block of an info payload."""
@@ -104,17 +105,14 @@ class ChallengeService:
         return int(self.info_item(target)["id"])
 
     def submit_flag(self, target: str, flag: str, difficulty: int) -> Any:
-        """Submit a challenge flag.
-
-        UNVERIFIED WRITE ROUTE: every challenge route verified live lives on
-        v4 (the v5 base 404s for ``/challenge/list`` and ``/challenge/info``),
-        so this posts to v4 ``/challenge/own`` with the machine-own analogue
-        body ``{"id", "flag", "difficulty"}``. If HTB rejects it, fall back to
-        ``python htb.py raw POST /challenge/own --data '{...}'``.
-        """
+        """Submit a challenge flag through the Labs v4 API."""
         return self.client.post(
             "/challenge/own",
-            data={"id": self.resolve_id(target), "flag": flag, "difficulty": difficulty},
+            data={
+                "challenge_id": self.resolve_id(target),
+                "flag": flag,
+                "difficulty": difficulty,
+            },
         )
 
     def rows(self, payload: Any) -> list[dict[str, Any]]:

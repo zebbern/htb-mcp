@@ -27,6 +27,8 @@ Run `htb_doctor` before anything else. It reports key resolution (and where the 
 
 **Submit a flag:** `htb_machine_submit` / `htb_challenge_submit` take the target, the flag, and a difficulty rating 10–100 in steps of 10 (10 = piece of cake, 100 = brainfuck). Ask the user for the rating if they did not give one. Submissions are irreversible.
 
+**Download challenge files:** Get the challenge id with `htb_challenge_info`, then call `htb_raw` with `method=GET`, `path=/challenge/download/<id>`, and an absolute `output` file path. The API redirects to a signed file URL; the toolkit drops the HTB authorization header on cross-origin redirects. Always set `output` for archives so binary content is saved as bytes.
+
 **Check rank progress:** `htb_user_progress` — read `rank`, `points`, `next_rank` / `next_rank_points`, and `current_rank_progress` / `rank_requirement` (percent). `htb_user_activity` shows the recent owns feeding that progress.
 
 **Switch VPN and get a config:** `htb_vpn_status` (what is assigned), `htb_vpn_servers` (what is available; `static=true` lists the offline alias table with no API key), `htb_vpn_switch <server>` (id, alias like `us-free-1`, or live name), then `htb_vpn_download <server>` for the OVPN file. The toolkit does not run OpenVPN — the user connects with the downloaded file themselves.
@@ -37,7 +39,7 @@ Run `htb_doctor` before anything else. It reports key resolution (and where the 
 - Only one machine can be active at a time; do not start a second one without resolving the conflict first.
 - No tight polling loops. One `htb_machine_start` with `wait=true` already retries internally; lists are cached for an hour; `htb_machine_active` is always live.
 - VPN switching affects the user's whole HTB connection — mention it before calling `htb_vpn_switch`.
-- `htb_raw` is the escape hatch for any HTB API endpoint (v4 base by default; pass baseUrl `https://labs.hackthebox.com/api/v5` for v5). Prefer the typed tools when they cover the need.
+- `htb_raw` is the escape hatch for any HTB API endpoint (v4 base by default; pass baseUrl `https://labs.hackthebox.com/api/v5` for v5). It can save binary responses with `output`. Prefer the typed tools when they cover the need.
 
 ## Boundaries
 

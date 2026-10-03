@@ -85,7 +85,7 @@ State-changing, non-destructive. With `wait` the response is `{id, name, ip, spa
 
 ## htb_challenge_submit → `challenge submit <target> <flag> --difficulty N`
 
-Same fields as `htb_machine_submit`. Irreversible. (Route implemented per the v4 machine-own analogue; use `htb_raw` as fallback if the endpoint moved.)
+Same fields as `htb_machine_submit`. Sends `challenge_id`, `flag`, and `difficulty` to the Labs v4 API. Irreversible.
 
 ## htb_vpn_servers → `vpn servers [product] [--static]`
 
@@ -120,7 +120,7 @@ Rank, points, next rank and requirements. Read-only, no parameters.
 
 `limit` integer default 20 (`--limit`). Recent owns, newest first. Read-only.
 
-## htb_raw → `raw <METHOD> <path> [--data JSON] [--base-url URL]`
+## htb_raw → `raw <METHOD> <path> [--data JSON] [--base-url URL] [-o file]`
 
 | Name | Type | Default | Description |
 |---|---|---|---|
@@ -128,8 +128,9 @@ Rank, points, next rank and requirements. Read-only, no parameters.
 | `path` | string | required | API path, e.g. `/machine/active` |
 | `data` | string | none | raw JSON request body |
 | `baseUrl` | string | none | default v4 base; pass `https://labs.hackthebox.com/api/v5` for v5 |
+| `output` | string | none | save the response body to a file instead of decoding it as text; relative paths resolve under `toolkit/` |
 
-Escape hatch for any endpoint. Can mutate state — `readOnlyHint: false`.
+Escape hatch for any endpoint. For a challenge archive, use `GET /challenge/download/<id>` with an absolute `output` path. The HTTP client removes HTB credentials before following a redirect to the signed file host. Can mutate state — `readOnlyHint: false`.
 
 ## Recommended agent workflow
 

@@ -60,7 +60,7 @@ Then ask things like:
 | `htb_vpn_servers` / `htb_vpn_status` | List usable VPN servers (`static=true` works with no API key); current assignment |
 | `htb_vpn_switch` / `htb_vpn_download` | Switch servers; download OVPN configs |
 | `htb_user_info` / `htb_user_progress` / `htb_user_activity` | Profile, rank progression, recent owns |
-| `htb_raw` | Escape hatch: call any HTB API endpoint directly (v4 by default, v5 via `baseUrl`) |
+| `htb_raw` | Escape hatch: call any HTB API endpoint directly (v4 by default, v5 via `baseUrl`); `output` saves binary responses such as challenge archives |
 
 Read-only tools are annotated `readOnlyHint`; `stop`, `reset` and both `submit` tools are annotated `destructiveHint`. Full reference: [docs/tools.md](docs/tools.md).
 

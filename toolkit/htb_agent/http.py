@@ -7,8 +7,8 @@ import time
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.parse import urlencode, urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from htb_agent import __version__
 
@@ -41,12 +41,38 @@ class ApiResponse:
         return json.loads(self.body.decode("utf-8"))
 
 
+def _origin(url: str) -> tuple[str, str | None, int | None]:
+    parts = urlsplit(url)
+    port = parts.port or {"http": 80, "https": 443}.get(parts.scheme.lower())
+    return parts.scheme.lower(), parts.hostname, port
+
+
+class _SafeRedirectHandler(HTTPRedirectHandler):
+    """Keep HTB credentials off cross-origin file download redirects."""
+
+    def redirect_request(
+        self,
+        req: Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> Request | None:
+        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if redirected is not None and _origin(req.full_url) != _origin(redirected.full_url):
+            for header in ("Authorization", "Proxy-Authorization", "Cookie"):
+                redirected.remove_header(header)
+        return redirected
+
+
 class HtbApiClient:
     def __init__(self, base_url: str, token: str, timeout: int = 30, max_retries: int = 4):
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.timeout = timeout
         self.max_retries = max_retries
+        self._opener = build_opener(_SafeRedirectHandler())
 
     def get(
         self, path: str, query: dict[str, Any] | None = None, *, version: str | None = None
@@ -100,7 +126,7 @@ class HtbApiClient:
         backoff = 1.0
         for attempt in range(self.max_retries + 1):
             try:
-                with urlopen(request, timeout=self.timeout) as response:
+                with self._opener.open(request, timeout=self.timeout) as response:
                     return ApiResponse(
                         status=response.status,
                         content_type=response.headers.get("Content-Type", ""),
@@ -120,7 +146,7 @@ class HtbApiClient:
                     continue
                 body = exc.read()
                 parsed = _parse_error_body(body)
-                message = _error_message(exc.code, parsed, body)
+                message = _redact_auth(_error_message(exc.code, parsed, body), self.token)
                 raise ApiError(exc.code, message, parsed) from exc
             except URLError as exc:
                 raise ApiError(None, f"Network error: {exc.reason}") from exc
@@ -179,3 +205,9 @@ def _error_message(status: int, parsed: Any | None, raw: bytes) -> str:
         if text:
             return f"HTTP {status}: {text[:500]}"
     return f"HTTP {status}"
+
+
+def _redact_auth(message: str, token: str) -> str:
+    if token:
+        message = message.replace(token, "[REDACTED]")
+    return re.sub(r"(?i)(\bBearer\s+)[A-Za-z0-9._~+/=-]+", r"\1[REDACTED]", message)
