@@ -1,0 +1,28 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.zebbern/htb-mcp",
+  "description": "Live control of Hack The Box labs: machines, challenges, flags and VPN via MCP.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/zebbern/htb-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@zebbern/htb",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "HTB_API_KEY",
+          "description": "Hack The Box App Token (app.hackthebox.com profile settings). Optional when toolkit/.env.local provides it.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

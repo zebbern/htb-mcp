@@ -1,0 +1,61 @@
+{
+  "$schema": "https://catalog.msh.team/misc/kimi.plugin.schema.json",
+  "name": "htb",
+  "version": "0.1.0",
+  "description": "Live control of Hack The Box labs in Kimi: start and stop machines, search machines and challenges, submit flags, track rank progress, switch VPN servers and download OVPN configs — backed by the bundled zero-dependency HTB Agent Toolkit.",
+  "keywords": [
+    "hackthebox",
+    "htb",
+    "ctf",
+    "pentesting",
+    "mcp",
+    "vpn"
+  ],
+  "author": "zebbern",
+  "license": "MIT",
+  "skillInstructions": "",
+  "interface": {
+    "displayName": "Hack The Box",
+    "shortDescription": "Control Hack The Box labs live in Kimi",
+    "longDescription": "Live control of Hack The Box labs in Kimi: start and stop machines, search machines and challenges, submit flags, track rank progress, switch VPN servers and download OVPN configs — backed by the bundled zero-dependency HTB Agent Toolkit.",
+    "developerName": "zebbern",
+    "websiteURL": "https://github.com/zebbern/htb-mcp",
+    "iconUrl": "",
+    "category": "PRODUCTIVITY",
+    "defaultLocale": "en-US",
+    "locales": "./locales/",
+    "tryPrompts": [
+      "Check my HTB session and show which machine is active",
+      "Spawn BoardLight and give me the IP",
+      "Find me an easy crypto challenge and track my rank progress"
+    ],
+    "skillOverrides": {
+      "htb": {
+        "displayName": "Hack The Box",
+        "description": "Control Hack The Box labs live in Kimi"
+      }
+    },
+    "hostKind": "local",
+    "platforms": [
+      "macos",
+      "linux",
+      "windows"
+    ],
+    "mcpOverrides": {
+      "htb": {
+        "displayName": "Hack The Box",
+        "description": "Control Hack The Box labs live in Kimi"
+      }
+    }
+  },
+  "skills": "./skills/",
+  "mcpServers": {
+    "htb": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@zebbern/htb"
+      ]
+    }
+  }
+}

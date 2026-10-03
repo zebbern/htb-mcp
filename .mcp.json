@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "htb": {
+      "command": "npx",
+      "args": ["-y", "@zebbern/htb"],
+      "env": {
+        "HTB_API_KEY": "your-htb-app-token-here (optional if toolkit/.env.local exists)"
+      }
+    }
+  }
+}

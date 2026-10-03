@@ -1,0 +1,18 @@
+{
+  "name": "htb",
+  "version": "0.1.0",
+  "description": "Live control of Hack The Box labs from your agent: start/stop machines, submit flags, browse challenges, manage VPN — via the bundled HTB Agent Toolkit.",
+  "author": {
+    "name": "zebbern"
+  },
+  "homepage": "https://github.com/zebbern/htb-mcp",
+  "repository": "https://github.com/zebbern/htb-mcp",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "hackthebox",
+    "htb",
+    "ctf",
+    "pentesting"
+  ]
+}

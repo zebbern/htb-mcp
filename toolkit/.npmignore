@@ -1,0 +1,6 @@
+# Never ship the local token file or the runtime cache in the npm tarball.
+# This nested ignore applies inside the whitelisted toolkit/ directory.
+.env.local
+.cache/
+__pycache__/
+*.pyc

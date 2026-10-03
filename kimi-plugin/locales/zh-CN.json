@@ -1,0 +1,23 @@
+{
+  "displayName": "Hack The Box",
+  "shortDescription": "在 Kimi 里实时操控 Hack The Box 实验室",
+  "longDescription": "在 Kimi 中实时操控 Hack The Box 实验室：启动和停止靶机、搜索靶机与挑战、提交 flag、跟踪段位进度、切换 VPN 服务器并下载 OVPN 配置——由内置的零依赖 HTB Agent Toolkit 提供支持。",
+  "developerName": "zebbern",
+  "tryPrompts": [
+    "检查我的 HTB 会话状态，看看当前哪台靶机在运行",
+    "启动 BoardLight 并把 IP 给我",
+    "找一个简单的 crypto 挑战，再看看我离下一段位还有多远"
+  ],
+  "mcpOverrides": {
+    "htb": {
+      "displayName": "Hack The Box",
+      "description": "在 Kimi 里实时操控 Hack The Box 实验室"
+    }
+  },
+  "skillOverrides": {
+    "htb": {
+      "displayName": "Hack The Box",
+      "description": "在 Kimi 里实时操控 Hack The Box 实验室"
+    }
+  }
+}

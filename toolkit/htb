@@ -1,0 +1,8 @@
+#!/bin/sh
+# HTB Agent Toolkit launcher — runs htb.py with whichever Python is available.
+# Usage: ./htb <command> [options]   (e.g. ./htb doctor)
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if command -v python3 >/dev/null 2>&1; then
+    exec python3 "$here/htb.py" "$@"
+fi
+exec python "$here/htb.py" "$@"

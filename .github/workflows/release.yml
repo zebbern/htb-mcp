@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write # required for npm trusted publishing (OIDC)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false # never cache in release builds (npm docs)
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Smoke-test MCP server
+        run: npm run smoke
+
+      # Hard security gate: the token file and runtime cache must never ship.
+      - name: Verify no secrets in the npm tarball
+        run: |
+          if npm pack --dry-run 2>&1 | grep -E "\.env\.local|\.cache"; then
+            echo "::error::secret or cache file would be published"
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+
+      # Trusted publishing: OIDC auth via id-token, provenance is automatic
+      # for public repo + public package. No NPM_TOKEN needed.
+      - name: Publish to npm
+        run: npm publish --access public
+
+      # Note: MCP registry publishing is done locally with mcp-publisher
+      # (see docs/agents.md), not in CI.

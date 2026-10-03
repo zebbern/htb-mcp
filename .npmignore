@@ -1,0 +1,12 @@
+# Belt and braces: npm pack must never ship secrets or dev files,
+# even if .gitignore changes or files/ is widened later.
+toolkit/.env.local
+toolkit/.cache/
+.env.local
+node_modules
+src
+scripts
+tests
+.github
+*.tsbuildinfo
+*.log
