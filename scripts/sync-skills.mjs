@@ -22,13 +22,16 @@ const COPIES = [path.join(ROOT, "kimi-plugin", "skills", "htb", "SKILL.md")];
 const MARKER =
   "<!-- GENERATED COPY of skills/htb/SKILL.md - do not edit directly; run: npm run sync:skills -->\n\n";
 
-const canonical = fs.readFileSync(CANONICAL, "utf8");
+// Git may check out text as CRLF on Windows. Compare the logical content so
+// generated copies are not reported as drift solely because of line endings.
+const normalizeLf = (value) => value.replace(/\r\n/g, "\n");
+const canonical = normalizeLf(fs.readFileSync(CANONICAL, "utf8"));
 const expected = MARKER + canonical;
 const check = process.argv.includes("--check");
 
 let drifted = 0;
 for (const target of COPIES) {
-  const current = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : null;
+  const current = fs.existsSync(target) ? normalizeLf(fs.readFileSync(target, "utf8")) : null;
   if (current === expected) continue;
   drifted++;
   if (check) {
