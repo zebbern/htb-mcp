@@ -33,7 +33,8 @@ def is_transient_spawn_error(exc: ApiError) -> bool:
 # ("You already have an active instance"). Unlike a full spawn server this is
 # not a capacity problem: it clears once the conflicting instance is freed, so
 # it needs its own recovery path rather than blind retries.
-ACTIVE_INSTANCE_STATUSES = {400, 403, 409}
+# Some API endpoints encode rejection in a success:false HTTP 200 body.
+ACTIVE_INSTANCE_STATUSES = {200, 400, 403, 409}
 ACTIVE_INSTANCE_KEYWORDS = (
     "active instance",
     "already have an active",

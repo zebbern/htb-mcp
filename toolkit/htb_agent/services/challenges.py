@@ -24,6 +24,7 @@ from urllib.parse import quote
 from htb_agent import cache
 from htb_agent.http import HtbApiClient
 from htb_agent.services.payloads import to_int
+from htb_agent.services.search import matches_terms
 
 
 class ChallengeService:
@@ -258,7 +259,9 @@ def challenge_summary(payload: Any) -> dict[str, Any]:
 def challenge_match_rank(
     item: dict[str, Any], query: str, categories: dict[int, str] | None = None
 ) -> int | None:
-    term = query.casefold()
+    term = " ".join(query.casefold().split())
+    if not term:
+        return None
     name = str(item.get("name")).casefold() if item.get("name") is not None else ""
     if name == term:
         return 0
@@ -284,6 +287,6 @@ def challenge_match_rank(
     ]
     return (
         4
-        if any(term in str(value).casefold() for value in values if value is not None)
+        if matches_terms(term, [str(value).casefold() for value in values if value is not None])
         else None
     )

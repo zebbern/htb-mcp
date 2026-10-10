@@ -76,7 +76,9 @@ def search_machines(
 
 
 def machine_match_rank(item: dict[str, Any], query: str) -> int | None:
-    term = query.casefold()
+    term = " ".join(query.casefold().split())
+    if not term:
+        return None
     name = text(item.get("name"))
     if name == term:
         return 0
@@ -95,7 +97,13 @@ def machine_match_rank(item: dict[str, Any], query: str) -> int | None:
     if any(text(value) == term for value in exact_fields):
         return 3
 
-    return 4 if any(term in value for value in searchable_machine_values(item)) else None
+    return 4 if matches_terms(term, searchable_machine_values(item)) else None
+
+
+def matches_terms(query: str, values: list[str]) -> bool:
+    """Require every word, allowing words to match different fields."""
+    terms = query.casefold().split()
+    return bool(terms) and all(any(term in value for value in values) for term in terms)
 
 
 def searchable_machine_values(item: dict[str, Any]) -> list[str]:

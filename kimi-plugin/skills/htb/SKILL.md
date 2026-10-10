@@ -25,6 +25,8 @@ Run `htb_doctor` before anything else. It reports key resolution (and where the 
 
 **Start a box and get its IP:** `htb_machine_start` with the name (e.g. `BoardLight`); `wait` defaults to true, so the call retries a full spawn server and returns when the IP is assigned — read `ip` from the result. If it fails with a conflict naming a different active machine, stop that one first (confirm with the user) and retry.
 
+The default `retryFor=600` is the total budget for submitting the start request and waiting for readiness. Normal provisioning can exceed 120 seconds. Unless the user requests a shorter limit, keep the default. An assigned machine with `spawning=true` and no IP is still provisioning. A timeout leaves the assignment intact and does not establish an HTB outage; inspect live state before taking further action. Repeating start on the same assignment preserves it. Reset rejects an assignment still provisioning.
+
 **Find a box by theme:** `htb_machine_search` with a technical term (`kerberos`, `windows easy`), `all=true` to include retired machines. Add `profiles=true` only when the theme lives in description text — it is slow (one API request per machine, minutes). Follow up with `htb_machine_profile` on a candidate.
 
 **Submit a flag:** `htb_machine_submit` / `htb_challenge_submit` take the target, the flag, and a difficulty rating 10–100 in steps of 10 (10 = piece of cake, 100 = brainfuck). Ask the user for the rating if they did not give one. Submissions are irreversible.

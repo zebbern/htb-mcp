@@ -7,7 +7,10 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -22,6 +25,7 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+      - run: npm test
 
       - name: "Guard: skill copies must not drift"
         run: node scripts/sync-skills.mjs --check

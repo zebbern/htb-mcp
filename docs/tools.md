@@ -41,7 +41,7 @@ Read-only. Lists are cached for `HTB_CACHE_TTL` seconds (default 3600).
 | `limit` | integer 1–50 | 20 | `--limit` |
 | `maxPages` | integer | none | `--max-pages` (CLI default 10) |
 
-Read-only.
+Read-only. Search requires every whitespace-separated query word to match somewhere in the searchable fields. For example, `windows easy` matches the OS and difficulty of the same row. Exact names rank first; matching remains case-insensitive.
 
 ## htb_machine_profile → `machine profile <target>`
 
@@ -49,7 +49,7 @@ Read-only.
 
 ## htb_machine_active → `machine active`
 
-`details` (boolean → `--details`: synopsis + academy modules). Always live, never cached. Read-only.
+`details` (boolean → `--details`: synopsis + academy modules). Always live, never cached. Read-only. The `spawning` field preserves the API's `isSpawning` flag; an assigned machine with no IP can still be provisioning.
 
 ## htb_machine_start → `machine start <target>`
 
@@ -58,14 +58,18 @@ Read-only.
 | `target` | string | required | positional |
 | `wait` | boolean | true | `--wait` (retry full spawn servers, wait for IP; 15-minute MCP timeout) |
 | `mode` | enum: `auto` / `play` / `spawn` | `auto` | `--mode` |
-| `retryFor` | integer seconds | none | `--retry-for` (CLI default 600) |
+| `retryFor` | integer seconds | none | `--retry-for` (CLI default 600; total spawn + readiness budget) |
 | `interval` | integer seconds | none | `--interval` (CLI default 15) |
 
 State-changing, non-destructive. With `wait` the response is `{id, name, ip, spawn}`.
 
+A successful start acknowledgement means HTB accepted the request. With `wait=true`, success also requires an IP and no ongoing `isSpawning` flag. Retrying the same assigned machine preserves it and continues waiting; start never implicitly terminates or resets it. Timeout reports the last observed API state and leaves the assignment intact for inspection. It does not prove a backend outage or a successful spawn.
+
 ## htb_machine_stop / htb_machine_reset / htb_machine_extend → `machine stop|reset|extend [target]`
 
 `target` optional; omit to act on the active machine. `stop` and `reset` are destructive (kill the box / wipe its state); `extend` is not.
+
+Reset requires the matching active assignment and rejects `isSpawning=true` locally with a state error. Extend may be rejected by HTB when the existing expiry is still far away.
 
 ## htb_machine_submit → `machine submit <target> <flag> --difficulty N`
 
@@ -77,7 +81,7 @@ State-changing, non-destructive. With `wait` the response is `{id, name, ip, spa
 
 ## htb_challenge_search → `challenge search <query>`
 
-`query` required; `all`, `retired` booleans; `limit` integer default 20. Read-only.
+`query` required; `all`, `retired` booleans; `limit` integer default 20. Read-only. Uses the same all-words matching as machine search, so `crypto easy` matches category and difficulty across fields.
 
 ## htb_challenge_info → `challenge info <target>`
 

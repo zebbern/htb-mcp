@@ -7,6 +7,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const PKG_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -51,6 +52,10 @@ async function main() {
   });
   const client = new Client({ name: "smoke-test", version: "0.0.1" });
   await client.connect(transport);
+  const expectedVersion = JSON.parse(readFileSync(path.join(PKG_ROOT, "package.json"), "utf8")).version;
+  if (client.getServerVersion()?.version !== expectedVersion) {
+    throw new Error(`Server version differs from package version ${expectedVersion}`);
+  }
 
   const { tools } = await client.listTools();
   const names = tools.map((t) => t.name).sort();

@@ -12,6 +12,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -19,6 +20,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 const PKG_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const PKG_VERSION: string = JSON.parse(readFileSync(path.join(PKG_ROOT, "package.json"), "utf8")).version;
 const TOOLKIT_DIR = process.env.HTB_TOOLKIT_DIR ?? path.join(PKG_ROOT, "toolkit");
 const HTB_PY = path.join(TOOLKIT_DIR, "htb.py");
 
@@ -29,12 +31,12 @@ const MAX_BUFFER = 16 * 1024 * 1024;
 const STDERR_TRUNC = 2000;
 
 const server = new McpServer(
-  { name: "htb", version: "0.1.0" },
+  { name: "htb", version: PKG_VERSION },
   {
     instructions: [
       "Live control of the user's Hack The Box account (machines, challenges, flags, VPN),",
       "backed by the bundled HTB Agent Toolkit CLI. Run htb_doctor first to verify auth.",
-      "Machine, challenge and VPN state is live, not cached.",
+      "Machine and VPN status is live; directory lists may be cached for one hour.",
       "Confirm with the user before stop/reset/submit actions: stopping kills the running box,",
       "reset wipes its state, and a submitted flag cannot be un-submitted.",
     ].join(" "),
@@ -94,7 +96,9 @@ async function runHtb(commandArgs: string[], timeoutMs: number): Promise<CliResu
   const fullArgs = [HTB_PY, ...commandArgs];
   const opts = {
     cwd: TOOLKIT_DIR,
-    env: process.env,
+    // Python otherwise uses a legacy code page for redirected pipes on Windows.
+    // The MCP process decodes stdout/stderr as UTF-8, so both ends must agree.
+    env: { ...process.env, PYTHONIOENCODING: "utf-8" },
     timeout: timeoutMs,
     maxBuffer: MAX_BUFFER,
     windowsHide: true,
@@ -157,15 +161,19 @@ function errorResult(err: any) {
     };
   }
   if (stderr) {
-    try {
-      const obj = JSON.parse(stderr);
-      if (obj && obj.error === true) {
-        let msg = `HTB error (${obj.type ?? "unknown"}): ${obj.message ?? "unknown error"}`;
-        if (obj.hint) msg += `. ${obj.hint}`;
-        return { content: [{ type: "text" as const, text: msg }], isError: true };
+    // Progress and rate-limit warnings precede the final one-line JSON error.
+    // Try the whole value first to retain compatibility with pretty JSON.
+    for (const candidate of [stderr, ...stderr.split(/\r?\n/).reverse()]) {
+      try {
+        const obj = JSON.parse(candidate);
+        if (obj && obj.error === true) {
+          let msg = `HTB error (${obj.type ?? "unknown"}): ${obj.message ?? "unknown error"}`;
+          if (obj.hint) msg += `. ${obj.hint}`;
+          return { content: [{ type: "text" as const, text: msg }], isError: true };
+        }
+      } catch {
+        // This line is progress, not the final error.
       }
-    } catch {
-      // stderr is not JSON — fall through to raw
     }
   }
   const raw = (stderr || stdout || String(err?.message ?? err)).slice(0, STDERR_TRUNC);
@@ -233,10 +241,10 @@ server.registerTool(
   },
   async ({ filter, spTier, page, noCache }) => {
     const args = ["machine", "list"];
-    if (filter === "retired") args.push("--retired");
+    if (spTier !== undefined) args.push("--sp-tier", String(spTier));
+    else if (filter === "retired") args.push("--retired");
     else if (filter === "todo") args.push("--todo");
     else if (filter === "unreleased") args.push("--unreleased");
-    if (spTier !== undefined) args.push("--sp-tier", String(spTier));
     if (page !== undefined) args.push("--page", String(page));
     if (noCache) args.push("--no-cache");
     return callCli(args);
@@ -249,7 +257,8 @@ server.registerTool(
     title: "Search HTB Machines",
     description:
       "Client-side search over the HTB machine lists, ranked by relevance. Matches id, name, OS, " +
-      "difficulty, tags, makers, points, IP. Use `all` to also scan retired machines. `profiles` " +
+      "difficulty, tags, makers, points, IP. Every query word must match, across fields if needed. " +
+      "Exact names rank first. Use `all` to also scan retired machines. `profiles` " +
       "additionally fetches every scanned machine's profile to match description text — powerful " +
       "but SLOW (one API request per machine, can take minutes), use it only when list fields are " +
       "not enough. Follow up with htb_machine_profile on a candidate.",
@@ -304,7 +313,8 @@ server.registerTool(
     title: "Active HTB Machine",
     description:
       "Show the currently active machine: id, name, ip, os, difficulty, expires_at/expires_in, " +
-      "lab server. Always live, never cached. An empty info block means nothing is running. " +
+      "lab server, and spawning status. An assignment without an IP may still be provisioning. " +
+      "Always live, never cached. An empty info block means nothing is assigned. " +
       "details=true adds the synopsis and linked academy modules.",
     inputSchema: {
       details: z.boolean().default(false).describe("Add synopsis and academy modules to the response"),
@@ -327,7 +337,8 @@ server.registerTool(
       "spawn. With wait=true (default) the CLI retries while spawn capacity is full, then waits for " +
       "the IP — this can take several minutes at peak times; the response contains {id, name, ip, " +
       "spawn}. Only one machine can be active at a time: a conflict error names the blocker, stop it " +
-      "(with the user's consent) and retry.",
+      "(with the user's consent) and retry. A retry for the same assigned machine preserves it " +
+      "and waits for readiness; it never silently terminates or resets it.",
     inputSchema: {
       target: z.string().min(1).describe("Machine id or name to start"),
       wait: z
@@ -340,7 +351,7 @@ server.registerTool(
         .int()
         .min(1)
         .optional()
-        .describe("Seconds to keep retrying a full spawn server (default 600)"),
+        .describe("Total seconds for spawn retries and readiness polling (default 600); provisioning can exceed 120 seconds"),
       interval: z.number().int().min(1).optional().describe("Seconds between retries/polls (default 15)"),
     },
     annotations: WRITE_SAFE,
@@ -465,7 +476,8 @@ server.registerTool(
     title: "Search HTB Challenges",
     description:
       "Client-side search over the (cached) challenge lists, ranked by relevance. Matches id, name, " +
-      "category, difficulty, points, state. Use `all` to also scan retired challenges. Follow up " +
+      "category, difficulty, points, state. Every query word must match, across fields if needed. " +
+      "Exact names rank first. Use `all` to also scan retired challenges. Follow up " +
       "with htb_challenge_info on a candidate.",
     inputSchema: {
       query: z.string().min(1).describe("Search terms, e.g. 'crypto' or 'web easy'"),

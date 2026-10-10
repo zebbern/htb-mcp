@@ -99,7 +99,18 @@ class HtbApiClient:
         version: str | None = None,
     ) -> Any:
         response = self.request(method, path, data=data, query=query, version=version)
-        return response.json()
+        return self.check_result(response.json(), response.status, method)
+
+    def check_result(self, payload: Any, status: int, method: str) -> Any:
+        """HTTP success can still carry an explicit application rejection."""
+        if isinstance(payload, dict) and (
+            payload.get("success") is False
+            or (method.upper() != "GET" and payload.get("status") is False)
+            or payload.get("error") is True
+        ):
+            message = payload.get("message") or "HTB reported an unsuccessful operation."
+            raise ApiError(status, _redact_auth(str(message), self.token), payload)
+        return payload
 
     def request(
         self,

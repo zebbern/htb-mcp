@@ -2,7 +2,7 @@
 
 MCP server that gives AI agents live control of [Hack The Box](https://www.hackthebox.com) labs — machines, challenges, flags and VPN — by wrapping the bundled, zero-dependency **HTB Agent Toolkit** CLI.
 
-Unlike index-based servers, nothing here is cached content: every tool call drives the real HTB Labs API for your account. The server is a thin, safe adapter: it spawns `toolkit/htb.py` (Python 3.10+, standard library only) with argument arrays (no shell), returns the CLI's compact JSON as structured content, and maps its structured stderr errors (`config`, `auth`, `rate_limit`, `conflict`, `state`, ...) onto MCP errors.
+The server calls the HTB Labs API for your account. Directory lists are cached for one hour by default; machine and VPN status are always live. It spawns `toolkit/htb.py` (Python 3.10+, standard library only) with argument arrays (no shell), returns the CLI's compact JSON as structured content, and maps its structured stderr errors (`config`, `auth`, `rate_limit`, `conflict`, `state`, ...) onto MCP errors.
 
 ## Quick start
 
@@ -35,6 +35,8 @@ codex mcp add htb -- npx -y @zebbern/htb
 ```
 
 Create an App Token at https://app.hackthebox.com/profile/settings (App Tokens section). Then call `htb_doctor` once to verify the session.
+
+On Windows, use `npx.cmd` as the launch command if your MCP host cannot resolve `npx`. The wrapper forces UTF-8 for Python's stdout and stderr, including descriptions containing emoji.
 
 **As a plugin** (bundles the agent skill that teaches safe, effective usage): this repo is a valid plugin for Claude Code (`.claude-plugin/`), Codex (`.codex-plugin/`) and Kimi (`kimi-plugin/`). Add it from your client's plugin marketplace flow pointing at `zebbern/htb-mcp`, or for Kimi Work use [this plugin link](kimi-work://plugin?id=htb).
 

@@ -15,7 +15,7 @@ from collections.abc import Callable
 from typing import Any
 
 from htb_agent import cache
-from htb_agent.http import ApiError, HtbApiClient
+from htb_agent.http import ApiError, HtbApiClient, StateError
 from htb_agent.services.payloads import academy_module_names, to_int
 from htb_agent.services.search import SearchSource, search_machines
 from htb_agent.services.spawn import (
@@ -90,7 +90,11 @@ class MachineService:
                 "type": info.get("type"),
                 "retired": info.get("retired"),
                 "active": play_info.get("isActive", info.get("active")),
-                "spawned": play_info.get("isSpawned"),
+                "spawned": (
+                    False if info.get("isSpawning") is True
+                    else info.get("isSpawned", bool(info.get("ip")))
+                ),
+                "spawning": info.get("isSpawning"),
                 "expires_at": info.get("expires_at") or play_info.get("expires_at"),
                 "expires_in": relative_expiry(info.get("expires_at") or play_info.get("expires_at")),
                 "vpn_server_id": info.get("vpn_server_id"),
@@ -173,7 +177,7 @@ class MachineService:
         except ApiError as exc:
             if not is_active_instance_conflict(exc):
                 raise
-            return self._recover_active_conflict(machine_id, dispatch, exc)
+            return self._recover_active_conflict(machine_id, exc)
 
     def _start_dispatch(self, mode: str):
         """Return the callable that performs ``start`` for ``mode``."""
@@ -185,16 +189,14 @@ class MachineService:
             return self.spawn
         raise ValueError(f"Unsupported start mode: {mode}")
 
-    def _recover_active_conflict(self, machine_id: int, dispatch, exc: ApiError) -> Any:
+    def _recover_active_conflict(self, machine_id: int, exc: ApiError) -> Any:
         """Resolve a "you already have an active instance" rejection.
 
         HTB blocks a start whenever any instance is assigned to the account.
         We inspect what is actually active and react idempotently:
 
-        * Same machine, already has an IP -> it is up; report it, do not churn it.
-        * Same machine, no IP yet (assigned but ``spawned: no``) -> the slot is
-          stuck, so reclaim it (terminate + restart) — exactly the manual
-          ``stop`` then ``start`` recovery, but automatic.
+        * Same machine -> retain its assignment. A missing IP or isSpawning
+          flag can mean normal provisioning; --wait continues polling it.
         * A *different* machine is active -> never touch it; raise a clear,
           actionable error naming it.
         """
@@ -211,16 +213,7 @@ class MachineService:
                 "Stop it first with 'python htb.py machine stop' before starting this one.",
                 exc.body,
             ) from exc
-        if info.get("ip"):
-            return {"message": "Machine already active.", "info": info}
-        # Assigned to us but not running: free the stuck slot and try again.
-        print(
-            f"reclaiming stuck instance for machine {machine_id} "
-            "(active but not spawned); terminating and restarting...",
-            file=sys.stderr,
-        )
-        self.stop(str(machine_id))
-        return dispatch(machine_id)
+        return {"message": "Machine already assigned; preserving existing instance.", "info": info}
 
     def _active_info(self) -> dict[str, Any] | None:
         data = self.active()
@@ -251,7 +244,7 @@ class MachineService:
             try:
                 return self.start(str(machine_id), mode)
             except ApiError as exc:
-                if not is_transient_spawn_error(exc):
+                if is_active_instance_conflict(exc) or not is_transient_spawn_error(exc):
                     raise
                 # Jitter spreads retries out so simultaneous clients do not
                 # hammer the API in lockstep at the release moment.
@@ -281,11 +274,8 @@ class MachineService:
     ) -> dict[str, Any]:
         """Poll the active machine until it reports an IP address.
 
-        Two failure shapes are handled distinctly from a normal "still booting"
-        poll: if the machine drops out of ``/machine/active`` (or is replaced by
-        a different one) after we have already seen it active, the spawn has
-        collapsed on HTB's side and waiting out the full ``timeout`` is
-        pointless — fail fast with that diagnosis instead.
+        Preserve the assignment while provisioning. Report observed API state
+        on timeout or replacement, without inferring why provisioning failed.
         """
         deadline = time.monotonic() + timeout
         seen_active = False
@@ -296,27 +286,32 @@ class MachineService:
             current_id = to_int(info.get("id")) if info else None
             if current_id == machine_id:
                 seen_active = True
-                if info.get("ip"):
+                if info.get("ip") and info.get("isSpawning") is not True:
                     return info
-            elif seen_active:
+            elif seen_active or current_id is not None:
                 where = (
                     f"machine {current_id} is now active instead"
                     if current_id is not None
                     else "no machine is active anymore"
                 )
-                raise RuntimeError(
-                    f"Machine {machine_id} dropped out before reporting an IP"
-                    f" ({where}); the spawn collapsed on HTB's side."
-                    " Re-run 'python htb.py machine start', and confirm you are connected"
-                    " to the matching VPN lab server."
+                raise StateError(
+                    f"Machine {machine_id} is no longer the assigned machine ({where})."
+                    " Check 'python htb.py machine active' before retrying."
                 )
-            if time.monotonic() + interval > deadline:
-                raise RuntimeError(
-                    f"Machine {machine_id} spawned but got no IP within {timeout}s."
-                    " Check 'python htb.py machine active' in a moment."
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                state = (
+                    f"id={current_id}, ip={info.get('ip')!r}, "
+                    f"isSpawning={str(info.get('isSpawning')).lower()}"
+                    if info else "no machine assigned"
+                )
+                raise StateError(
+                    f"Machine {machine_id} was not ready within {timeout}s."
+                    f" Last API state: {state}. No automatic stop/reset was performed."
+                    " Check 'python htb.py machine active' before retrying."
                 )
             print("waiting for machine IP...", file=sys.stderr)
-            time.sleep(interval)
+            time.sleep(min(interval, remaining))
 
     def play(self, machine_id: int) -> Any:
         return self.client.post(f"/machine/play/{machine_id}")
@@ -329,7 +324,16 @@ class MachineService:
         return self.client.post("/vm/terminate", data={"machine_id": machine_id})
 
     def reset(self, target: str | None = None) -> Any:
-        machine_id = self.resolve_id(target) if target else self.active_id()
+        info = self._active_info()
+        active_id = to_int(info.get("id")) if info else None
+        machine_id = self.resolve_id(target) if target else active_id
+        if active_id is None or active_id != machine_id:
+            raise StateError("The requested machine is not the active assignment; check machine active.")
+        if info.get("isSpawning") is True:
+            raise StateError(
+                f"Machine {machine_id} is still provisioning (isSpawning=true); "
+                "wait for it to become ready before resetting. No reset was sent."
+            )
         return self.client.post("/vm/reset", data={"machine_id": machine_id})
 
     def extend(self, target: str | None = None) -> Any:
@@ -366,6 +370,8 @@ class MachineService:
         try:
             return self.play(machine_id)
         except ApiError as exc:
+            if is_active_instance_conflict(exc):
+                raise
             if exc.status in {400, 404, 409, 422}:
                 return self.spawn(machine_id)
             raise

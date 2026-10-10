@@ -511,7 +511,7 @@ def raw(args: argparse.Namespace, client: HtbApiClient) -> Any:
         args.output.write_bytes(response.body)
         return {"status": response.status, "output": str(args.output)}
     if response.content_type.startswith("application/json"):
-        return response.json()
+        return client.check_result(response.json(), response.status, args.method)
     return response.body.decode("utf-8", errors="replace")
 
 
