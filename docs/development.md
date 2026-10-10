@@ -30,7 +30,7 @@ npm run build && npm test && npm run smoke
 
 The smoke test needs **no API key**: it lists tools, then calls `htb_vpn_servers {static: true}` (offline alias table), then `htb_doctor` — a failing doctor is reported but does not fail the run, so CI works without secrets.
 
-Regression tests use synthetic data and a loopback HTTP server with a test-only key. They cover multiword search, Windows Unicode output, list-filter precedence, provisioning readiness and timeouts, preservation of existing machines, reset preconditions, application errors inside HTTP 200 responses, and skill drift checks with Windows line endings. They do not mutate a real HTB account or claim that HTB's live provisioning service is healthy.
+Regression tests use synthetic data and a loopback HTTP server with a test-only key. They cover multiword search, challenge-list pagination and full export, Windows Unicode output, list-filter precedence, provisioning readiness and timeouts, preservation of existing machines, reset preconditions, optional submission ratings, application errors inside HTTP 200 responses, and skill drift checks with Windows line endings. They do not mutate a real HTB account or claim that HTB's live provisioning service is healthy.
 
 For live testing against your own account, put `HTB_API_KEY=<your-app-token>` in `toolkit/.env.local` (copy `toolkit/.env.example`). This file is git-ignored and npm-ignored; never commit it.
 

@@ -24,11 +24,20 @@ test("MCP tools preserve API contracts through the real Python subprocess", asyn
     if (rawBody) bodies.push({ route, body: JSON.parse(rawBody) });
     let body: unknown;
     if (route === "/challenge/info/250") {
-      body = { challenge: { id: 250, name: "Protein Cookies", description: "Cookies 🍪 — café" } };
+      body = { challenge: { id: 250, name: "Protein Cookies", description: "Cookies 🍪 — café", difficulty: "Easy" } };
     } else if (route === "/machine/paginated") {
       body = { data: [{ id: 987, name: "Touch", os: "Windows", difficultyText: "Easy" }] };
     } else if (route === "/challenge/list") {
-      body = { challenges: [{ id: 250, name: "Protein Cookies", difficulty: "Easy", challenge_category_id: 1 }] };
+      body = { challenges: [
+        { id: 250, name: "Protein Cookies", difficulty: "Easy", challenge_category_id: 1 },
+        ...Array.from({ length: 29 }, (_, index) => ({
+          id: 251 + index, name: `Sample ${251 + index}`, difficulty: "Easy", challenge_category_id: 1,
+        })),
+      ] };
+    } else if (route === "/challenge/list/retired") {
+      body = { challenges: [700, 701, 702].map((id) => ({
+        id, name: `Retired ${id}`, difficulty: "Medium", challenge_category_id: 1, retired: true,
+      })) };
     } else if (route === "/challenge/categories/list") {
       body = { info: [{ id: 1, name: "Crypto" }] };
     } else if (route === "/machines") {
@@ -93,6 +102,32 @@ test("MCP tools preserve API contracts through the real Python subprocess", asyn
         assert.equal((result.structuredContent as any).result[0]?.id, id);
       }
     });
+    await t.test("challenge lists page by default and allow an explicit full export", async () => {
+      const first = await call("htb_challenge_list", {});
+      assert.notEqual(first.isError, true, JSON.stringify(first));
+      assert.equal((first.structuredContent as any).result.length, 25);
+      assert.equal((first.structuredContent as any).total, 30);
+      assert.equal((first.structuredContent as any).nextPage, 2);
+      assert.ok((first.content as any[])[0].text.length < 5000);
+
+      const second = await call("htb_challenge_list", { page: 2, pageSize: 10 });
+      assert.equal((second.structuredContent as any).result[0].id, 260);
+      assert.equal((second.structuredContent as any).nextPage, 3);
+
+      const beyond = await call("htb_challenge_list", { page: 4, pageSize: 10 });
+      assert.deepEqual((beyond.structuredContent as any).result, []);
+      assert.equal((beyond.structuredContent as any).total, 30);
+      assert.equal((beyond.structuredContent as any).nextPage, null);
+
+      const retired = await call("htb_challenge_list", { retired: true, pageSize: 2 });
+      assert.equal((retired.structuredContent as any).result.length, 2);
+      assert.equal((retired.structuredContent as any).total, 3);
+      assert.equal((retired.structuredContent as any).nextPage, 2);
+
+      const all = await call("htb_challenge_list", { retired: true, allRows: true });
+      assert.equal((all.structuredContent as any).result.length, 3);
+      assert.ok((all.content as any[])[0].text.trim().startsWith("["));
+    });
     await t.test("starting-point tier overrides the list filter", async () => {
       const result = await call("htb_machine_list", { filter: "retired", spTier: 1 });
       assert.notEqual(result.isError, true, JSON.stringify(result));
@@ -138,7 +173,9 @@ test("MCP tools preserve API contracts through the real Python subprocess", asyn
       for (const [name, args] of [
         ["htb_machine_extend", { target: "351" }],
         ["htb_machine_submit", { target: "351", flag: "HTB{synthetic-machine}", difficulty: 10 }],
+        ["htb_machine_submit", { target: "351", flag: "HTB{synthetic-unrated}" }],
         ["htb_challenge_submit", { target: "250", flag: "HTB{synthetic-challenge}", difficulty: 10 }],
+        ["htb_challenge_submit", { target: "250", flag: "HTB{synthetic-auto}" }],
       ] as const) {
         const result = await call(name, args);
         assert.notEqual(result.isError, true, JSON.stringify(result));
@@ -147,8 +184,16 @@ test("MCP tools preserve API contracts through the real Python subprocess", asyn
       assert.deepEqual(bodies.find((item) => item.route === "/machine/own")?.body, {
         id: 351, flag: "HTB{synthetic-machine}", difficulty: 10,
       });
+      assert.deepEqual(bodies.find((item) => item.route === "/machine/own" &&
+        (item.body as { flag?: string }).flag === "HTB{synthetic-unrated}")?.body, {
+        id: 351, flag: "HTB{synthetic-unrated}",
+      });
       assert.deepEqual(bodies.find((item) => item.route === "/challenge/own")?.body, {
         challenge_id: 250, flag: "HTB{synthetic-challenge}", difficulty: 10,
+      });
+      assert.deepEqual(bodies.find((item) => item.route === "/challenge/own" &&
+        (item.body as { flag?: string }).flag === "HTB{synthetic-auto}")?.body, {
+        challenge_id: 250, flag: "HTB{synthetic-auto}", difficulty: 20,
       });
     });
     assert.ok(requests.length > 0);

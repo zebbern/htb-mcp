@@ -44,7 +44,7 @@ Then ask things like:
 
 - *"Check my HTB session and show which machine is active"*
 - *"Spawn BoardLight and give me the IP"*
-- *"Submit this flag for machine 444 as difficulty 50: HTB{...}"*
+- *"Submit this flag for machine 444: HTB{...}"*
 - *"Switch my VPN to us-free-1 and download the config"*
 
 ## Tools at a glance
@@ -56,9 +56,9 @@ Then ask things like:
 | `htb_machine_profile` / `htb_machine_active` | Machine details by id or name; what's running right now (live) |
 | `htb_machine_start` | Spawn a box; `wait=true` retries full spawn servers and returns the IP |
 | `htb_machine_stop` / `htb_machine_reset` / `htb_machine_extend` | Lifecycle control of the active (or named) machine |
-| `htb_machine_submit` | Submit a user/root flag with a difficulty rating (10–100) |
-| `htb_challenge_list` / `htb_challenge_search` / `htb_challenge_info` | Browse and search challenges |
-| `htb_challenge_submit` | Submit a challenge flag |
+| `htb_machine_submit` | Submit a user/root flag; personal difficulty rating optional |
+| `htb_challenge_list` / `htb_challenge_search` / `htb_challenge_info` | Browse challenges in 25-row pages, search, and inspect details |
+| `htb_challenge_submit` | Submit a challenge flag; uses its listed difficulty as the rating unless one is supplied |
 | `htb_vpn_servers` / `htb_vpn_status` | List usable VPN servers (`static=true` works with no API key); current assignment |
 | `htb_vpn_switch` / `htb_vpn_download` | Switch servers; download OVPN configs |
 | `htb_user_info` / `htb_user_progress` / `htb_user_activity` | Profile, rank progression, recent owns |

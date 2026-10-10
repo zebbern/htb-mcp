@@ -428,9 +428,9 @@ server.registerTool(
   {
     title: "Submit Machine Flag",
     description:
-      "Submit a user or root flag for a machine (HTB infers which from the flag value). difficulty " +
-      "is a required rating in steps of 10 from 10 (piece of cake) to 100 (brainfuck) — ask the user " +
-      "if they did not provide one. Submissions are irreversible: confirm with the user first.",
+      "Submit a user or root flag for a machine (HTB infers which from the flag value). " +
+      "A difficulty rating is optional; omit it to submit without rating. If provided, it must " +
+      "be 10-100 in steps of 10. Submissions are irreversible: confirm with the user first.",
     inputSchema: {
       target: z.string().min(1).describe("Machine id or name"),
       flag: z.string().min(1).describe("The flag, e.g. HTB{...}"),
@@ -440,12 +440,16 @@ server.registerTool(
         .min(10)
         .max(100)
         .multipleOf(10)
-        .describe("Difficulty rating 10-100 in steps of 10"),
+        .optional()
+        .describe("Optional personal difficulty rating 10-100 in steps of 10"),
     },
     annotations: WRITE_DESTRUCTIVE,
   },
-  async ({ target, flag, difficulty }) =>
-    callCli(["machine", "submit", target, flag, "--difficulty", String(difficulty)]),
+  async ({ target, flag, difficulty }) => {
+    const args = ["machine", "submit", target, flag];
+    if (difficulty !== undefined) args.push("--difficulty", String(difficulty));
+    return callCli(args);
+  },
 );
 
 server.registerTool(
@@ -453,20 +457,42 @@ server.registerTool(
   {
     title: "List HTB Challenges",
     description:
-      "List Hack The Box challenges (active by default; retired=true for retired ones). Returns " +
-      "compact JSON rows (id, name, category, difficulty, points, retired, state, solved, solves). " +
-      "Cached for 1h; noCache bypasses the cache.",
+      "List Hack The Box challenges (active by default; retired=true for retired ones). " +
+      "Returns 25 compact rows by default, with total count and nextPage. Use page/pageSize " +
+      "to browse, or allRows=true to return the full selected list (large response). " +
+      "Rows contain id, name, category, difficulty, points, retired, state, solved, solves. " +
+      "Cached for 1h; noCache bypasses the cache. Prefer challenge search for targeted queries.",
     inputSchema: {
       retired: z.boolean().default(false).describe("List retired challenges instead of active ones"),
       noCache: z.boolean().default(false).describe("Bypass the local list cache for this call"),
+      page: z.number().int().min(1).default(1).describe("Page number (default 1)"),
+      pageSize: z.number().int().min(1).max(100).default(25).describe("Rows per page, 1-100 (default 25)"),
+      allRows: z.boolean().default(false).describe("Return the full selected list instead of a page; can be very large"),
     },
     annotations: READONLY,
   },
-  async ({ retired, noCache }) => {
+  async ({ retired, noCache, page, pageSize, allRows }) => {
     const args = ["challenge", "list"];
     if (retired) args.push("--retired");
     if (noCache) args.push("--no-cache");
-    return callCli(args);
+    const result = await callCli(args);
+    if ("isError" in result) return result;
+    const rows = result.structuredContent?.result;
+    if (!Array.isArray(rows)) {
+      return {
+        content: [{ type: "text" as const, text: "HTB CLI returned a non-array challenge list." }],
+        isError: true,
+      };
+    }
+    if (allRows) return result;
+    const start = (page - 1) * pageSize;
+    return okResult(JSON.stringify({
+      result: rows.slice(start, start + pageSize),
+      total: rows.length,
+      page,
+      pageSize,
+      nextPage: start + pageSize < rows.length ? page + 1 : null,
+    }));
   },
 );
 
@@ -522,9 +548,9 @@ server.registerTool(
   {
     title: "Submit Challenge Flag",
     description:
-      "Submit a challenge flag. difficulty is a required rating in steps of 10 from 10 to 100 — ask " +
-      "the user if they did not provide one. Submissions are irreversible: confirm with the user " +
-      "first.",
+      "Submit a challenge flag. A difficulty rating is optional; when omitted, use the " +
+      "challenge's published difficulty as its rating. If supplied, the rating must be " +
+      "10-100 in steps of 10. Submissions are irreversible: confirm with the user first.",
     inputSchema: {
       target: z.string().min(1).describe("Challenge id or name"),
       flag: z.string().min(1).describe("The flag, e.g. HTB{...}"),
@@ -534,12 +560,16 @@ server.registerTool(
         .min(10)
         .max(100)
         .multipleOf(10)
-        .describe("Difficulty rating 10-100 in steps of 10"),
+        .optional()
+        .describe("Optional personal rating 10-100 in steps of 10; defaults to listed difficulty"),
     },
     annotations: WRITE_DESTRUCTIVE,
   },
-  async ({ target, flag, difficulty }) =>
-    callCli(["challenge", "submit", target, flag, "--difficulty", String(difficulty)]),
+  async ({ target, flag, difficulty }) => {
+    const args = ["challenge", "submit", target, flag];
+    if (difficulty !== undefined) args.push("--difficulty", String(difficulty));
+    return callCli(args);
+  },
 );
 
 server.registerTool(

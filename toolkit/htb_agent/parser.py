@@ -242,7 +242,7 @@ def _add_machine_commands(subparsers: _SubParsers, common: argparse.ArgumentPars
         "--difficulty",
         type=int,
         choices=range(10, 101, 10),
-        required=True,
+        help="Optional personal difficulty rating (10-100 in steps of 10).",
     )
     submit.set_defaults(handler=handlers.machine_submit)
 
@@ -285,7 +285,7 @@ def _add_challenge_commands(subparsers: _SubParsers, common: argparse.ArgumentPa
         "--difficulty",
         type=int,
         choices=range(10, 101, 10),
-        required=True,
+        help="Optional personal rating; defaults to the challenge's listed difficulty.",
     )
     submit.set_defaults(handler=handlers.challenge_submit)
 

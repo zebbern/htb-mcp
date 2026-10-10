@@ -340,11 +340,14 @@ class MachineService:
         machine_id = self.resolve_id(target) if target else self.active_id()
         return self.client.post("/vm/extend", data={"machine_id": machine_id})
 
-    def submit_flag(self, target: str, flag: str, difficulty: int) -> Any:
+    def submit_flag(self, target: str, flag: str, difficulty: int | None = None) -> Any:
         # v4 /machine/own was removed; flag submission now lives on v5.
+        data: dict[str, Any] = {"id": self.resolve_id(target), "flag": flag}
+        if difficulty is not None:
+            data["difficulty"] = difficulty
         return self.client.post(
             "/machine/own",
-            data={"id": self.resolve_id(target), "flag": flag, "difficulty": difficulty},
+            data=data,
             version="v5",
         )
 

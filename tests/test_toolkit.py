@@ -8,7 +8,8 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "toolkit"))
 
 from htb_agent.http import ApiError, ApiResponse, HtbApiClient, StateError
-from htb_agent.services.challenges import challenge_match_rank
+from htb_agent.parser import build_parser
+from htb_agent.services.challenges import ChallengeService, challenge_match_rank
 from htb_agent.services.machines import MachineService
 from htb_agent.services.search import machine_match_rank
 
@@ -112,6 +113,22 @@ class MachineTests(unittest.TestCase):
         self.assertEqual(self.service.reset(), {"success": True})
         self.client.post.assert_called_once_with("/vm/reset", data={"machine_id": 351})
 
+    def test_machine_submit_omits_unrequested_rating(self):
+        self.client.post.return_value = {"success": True}
+        self.service.submit_flag("351", "HTB{sample}")
+        self.client.post.assert_called_once_with(
+            "/machine/own", data={"id": 351, "flag": "HTB{sample}"}, version="v5"
+        )
+        self.client.post.reset_mock()
+        self.service.submit_flag("351", "HTB{sample}", 40)
+        self.client.post.assert_called_once_with(
+            "/machine/own", data={"id": 351, "flag": "HTB{sample}", "difficulty": 40}, version="v5"
+        )
+
+    def test_machine_submit_cli_accepts_omitted_rating(self):
+        args = build_parser().parse_args(["machine", "submit", "351", "HTB{sample}"])
+        self.assertIsNone(args.difficulty)
+
 
 class ApiTests(unittest.TestCase):
     def test_http_200_explicit_failures_raise_application_error(self):
@@ -136,6 +153,43 @@ class ApiTests(unittest.TestCase):
         body = {"status": False}
         with patch.object(client, "request", return_value=ApiResponse(200, "application/json", json.dumps(body).encode())):
             self.assertEqual(client.get("/connection/status"), body)
+
+
+class ChallengeSubmissionTests(unittest.TestCase):
+    def setUp(self):
+        self.client = Mock()
+        self.service = ChallengeService(self.client, use_cache=False)
+        self.client.get.return_value = {"challenge": {"id": 250, "difficulty": "Easy"}}
+        self.client.post.return_value = {"message": "Congratulations!"}
+
+    def test_omitted_rating_uses_listed_difficulty(self):
+        for label, rating in (("Very Easy", 10), ("Easy", 20), ("Medium", 30), ("Hard", 40), ("Insane", 50)):
+            with self.subTest(label=label):
+                self.client.get.return_value = {"challenge": {"id": 250, "difficulty": label}}
+                self.client.get.reset_mock()
+                self.client.post.reset_mock()
+                self.service.submit_flag("250", "HTB{sample}")
+                self.client.get.assert_called_once_with("/challenge/info/250")
+                self.client.post.assert_called_once_with(
+                    "/challenge/own", data={"challenge_id": 250, "flag": "HTB{sample}", "difficulty": rating}
+                )
+
+    def test_explicit_rating_skips_difficulty_lookup(self):
+        self.service.submit_flag("250", "HTB{sample}", 70)
+        self.client.get.assert_not_called()
+        self.client.post.assert_called_once_with(
+            "/challenge/own", data={"challenge_id": 250, "flag": "HTB{sample}", "difficulty": 70}
+        )
+
+    def test_unknown_difficulty_stops_before_submission(self):
+        self.client.get.return_value = {"challenge": {"id": 250, "difficulty": "Unrated"}}
+        with self.assertRaisesRegex(ValueError, "no recognized listed difficulty"):
+            self.service.submit_flag("250", "HTB{sample}")
+        self.client.post.assert_not_called()
+
+    def test_challenge_submit_cli_accepts_omitted_rating(self):
+        args = build_parser().parse_args(["challenge", "submit", "250", "HTB{sample}"])
+        self.assertIsNone(args.difficulty)
 
 
 if __name__ == "__main__":

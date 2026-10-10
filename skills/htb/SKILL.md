@@ -27,7 +27,9 @@ The default `retryFor=600` is the total budget for submitting the start request 
 
 **Find a box by theme:** `htb_machine_search` with a technical term (`kerberos`, `windows easy`), `all=true` to include retired machines. Add `profiles=true` only when the theme lives in description text — it is slow (one API request per machine, minutes). Follow up with `htb_machine_profile` on a candidate.
 
-**Submit a flag:** `htb_machine_submit` / `htb_challenge_submit` take the target, the flag, and a difficulty rating 10–100 in steps of 10 (10 = piece of cake, 100 = brainfuck). Ask the user for the rating if they did not give one. Submissions are irreversible.
+**Browse challenges:** Prefer `htb_challenge_search` for a known name, category, or difficulty. `htb_challenge_list` returns 25 rows by default with `total` and `nextPage`; request later pages as needed. Use `allRows=true` only for an explicit full export because the complete list is large.
+
+**Submit a flag:** `htb_machine_submit` / `htb_challenge_submit` require the target and flag. A personal difficulty rating (10–100 in steps of 10) is optional. Without one, machine submission sends no rating; challenge submission uses HTB's published difficulty because its API requires a rating. Only ask for a rating if HTB supplies no recognized challenge difficulty. An explicit rating overrides the default. Submissions are irreversible.
 
 **Download challenge files:** Get the challenge id with `htb_challenge_info`, then call `htb_raw` with `method=GET`, `path=/challenge/download/<id>`, and an absolute `output` file path. The API redirects to a signed file URL; the toolkit drops the HTB authorization header on cross-origin redirects. Always set `output` for archives so binary content is saved as bytes.
 

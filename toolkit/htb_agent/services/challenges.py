@@ -27,6 +27,15 @@ from htb_agent.services.payloads import to_int
 from htb_agent.services.search import matches_terms
 
 
+LISTED_DIFFICULTY_RATINGS = {
+    "very easy": 10,
+    "easy": 20,
+    "medium": 30,
+    "hard": 40,
+    "insane": 50,
+}
+
+
 class ChallengeService:
     def __init__(self, client: HtbApiClient, *, use_cache: bool = True):
         self.client = client
@@ -105,12 +114,24 @@ class ChallengeService:
             return int(target)
         return int(self.info_item(target)["id"])
 
-    def submit_flag(self, target: str, flag: str, difficulty: int) -> Any:
-        """Submit a challenge flag through the Labs v4 API."""
+    def submit_flag(self, target: str, flag: str, difficulty: int | None = None) -> Any:
+        """Submit a challenge flag, using its published difficulty by default."""
+        if difficulty is None:
+            challenge = self.info_item(target)
+            challenge_id = int(challenge["id"])
+            label = str(challenge.get("difficulty") or "").strip().casefold()
+            difficulty = LISTED_DIFFICULTY_RATINGS.get(label)
+            if difficulty is None:
+                raise ValueError(
+                    f"Challenge {target!r} has no recognized listed difficulty; "
+                    "provide --difficulty explicitly."
+                )
+        else:
+            challenge_id = self.resolve_id(target)
         return self.client.post(
             "/challenge/own",
             data={
-                "challenge_id": self.resolve_id(target),
+                "challenge_id": challenge_id,
                 "flag": flag,
                 "difficulty": difficulty,
             },

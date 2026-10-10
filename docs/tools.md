@@ -71,13 +71,13 @@ A successful start acknowledgement means HTB accepted the request. With `wait=tr
 
 Reset requires the matching active assignment and rejects `isSpawning=true` locally with a state error. Extend may be rejected by HTB when the existing expiry is still far away.
 
-## htb_machine_submit → `machine submit <target> <flag> --difficulty N`
+## htb_machine_submit → `machine submit <target> <flag> [--difficulty N]`
 
-`target`, `flag` required; `difficulty` required integer 10–100 in steps of 10. Irreversible — destructive annotation.
+`target` and `flag` are required. `difficulty` is an optional personal rating, 10–100 in steps of 10. When omitted, no rating is sent to HTB. Irreversible — destructive annotation.
 
 ## htb_challenge_list → `challenge list`
 
-`retired` (boolean), `noCache` (boolean). Read-only, cached like machine lists.
+`retired` (boolean), `noCache` (boolean), `page` (integer ≥1, default 1), `pageSize` (integer 1–100, default 25), and `allRows` (boolean, default false). Read-only, cached like machine lists. The MCP tool pages the CLI's full list without changing the CLI output format. Normal responses contain `{result, total, page, pageSize, nextPage}`; a page past the end returns an empty `result` and `nextPage: null`. Set `allRows=true` to receive the previous full-array response for an explicit export; it can be large. Use `htb_challenge_search` for targeted queries.
 
 ## htb_challenge_search → `challenge search <query>`
 
@@ -87,9 +87,9 @@ Reset requires the matching active assignment and rejects `isSpawning=true` loca
 
 `target` required, `full` boolean. Read-only.
 
-## htb_challenge_submit → `challenge submit <target> <flag> --difficulty N`
+## htb_challenge_submit → `challenge submit <target> <flag> [--difficulty N]`
 
-Same fields as `htb_machine_submit`. Sends `challenge_id`, `flag`, and `difficulty` to the Labs v4 API. Irreversible.
+`target` and `flag` are required. The Labs v4 API requires a rating; when `difficulty` is omitted, the tool uses the challenge's published difficulty: Very Easy 10, Easy 20, Medium 30, Hard 40, Insane 50. An explicit personal rating 10–100 in steps of 10 overrides it. If HTB provides no recognized published difficulty, the tool stops before submission and asks for an explicit rating. The rating contributes to HTB's community difficulty graph. Irreversible.
 
 ## htb_vpn_servers → `vpn servers [product] [--static]`
 
